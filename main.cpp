@@ -22,13 +22,13 @@ struct Rock;
 
 template<typename... Ts>
 struct Beats {
-    using list = TList<Ts...>;
+    using beats = TList<Ts...>;
 };
 
 template<typename F>
-concept Figure = requires(F) 
+concept Figure = requires(F)
 {
-    ([]<typename... Ts> (TList<Ts...>) {})(typename F::list {});
+    ([]<typename... Ts> (TList<Ts...>) {})(typename F::beats {});
 };
 
 using Figures = TList<Paper, Scissors, Rock>;
@@ -40,7 +40,7 @@ struct Scissors  : Beats<Paper> {};
 template<Figure LF, Figure RF>
 bool operator>(LF, RF) 
 {
-    return is_in_list_v<RF, typename LF::list>;
+    return is_in_list_v<RF, typename LF::beats>;
 }
 
 int main() {
