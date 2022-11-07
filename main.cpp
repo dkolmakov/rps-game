@@ -1,52 +1,61 @@
-#include <cstdint>
 #include <iostream>
 #include <utility>
 
-template<typename... Ts>
-struct TList {};
-
-template<typename TL>
-concept TypeList = requires(TL t) 
-{
-    ([]<typename... Ts> (TList<Ts...>) {})(t);
-};
-
-template<typename T, TypeList TL>
-bool is_in_list_v = []<typename... Ts>(TList<Ts...>){
-    return (std::is_same_v<Ts, T> || ...);
-}(TL{});
+#include "tlist.hpp"
+#include "shape.hpp"
 
 struct Paper;
 struct Scissors;
 struct Rock;
 
-template<typename... Ts>
-struct Beats {
-    using beats = TList<Ts...>;
-};
+struct Rock : Beats<Scissors>, Label<"Rock">, Symbol<'r'> {};
+struct Paper : Beats<Rock>, Label<"Paper">, Symbol<'p'> {};
+struct Scissors  : Beats<Paper>, Label<"Scissors">, Symbol<'s'> {};
 
-template<typename F>
-concept Figure = requires(F)
-{
-    ([]<typename... Ts> (TList<Ts...>) {})(typename F::beats {});
-};
+template<Figure LF, Figure RF>
+bool operator>(LF, RF) { return LF::beats::template contains_v<RF>; }
+
+template<Figure LF, Figure RF>
+bool operator==(LF, RF) { return std::is_same_v<RF, LF>; }
+
+template<Figure LF, Figure RF>
+int decide_winner(LF lf, RF rf) {
+    if (lf == rf) { return 0; }
+    else if (lf > rf) { return 1; }
+    else { return -1; }
+}
 
 using Figures = TList<Paper, Scissors, Rock>;
 
-struct Rock : Beats<Scissors> {};
-struct Paper : Beats<Rock> {};
-struct Scissors  : Beats<Paper> {};
+auto figure_symbol_equals(char sym) {
+    return [sym]<Figure LF> (LF) { return LF::symbol == sym; };
+}
 
-template<Figure LF, Figure RF>
-bool operator>(LF, RF) 
-{
-    return is_in_list_v<RF, typename LF::beats>;
+template<typename Action>
+auto apply_to_figures(Action action) {
+    return [&](char user_choice, char comp_choice) {
+        Figures::for_each(do_if(figure_symbol_equals(user_choice),
+                                [&]<Figure LF>(LF f) {
+                                    Figures::for_each(do_if(figure_symbol_equals(comp_choice),
+                                                            [&]<Figure RF>(RF) { action(LF{}, RF{}); }
+                                    ));
+                                }
+        ));
+    };
+}
+
+int get_winner(char user_choice, char comp_choice) {
+    int acc = 0;
+    auto pair_to_result = apply_to_figures([&acc] (auto lf, auto rf) {
+        std::cout << lf.label << " " << decide_winner(lf, rf) << " " << rf.label << std::endl;
+        acc += decide_winner(lf, rf);
+    });
+    pair_to_result(user_choice, comp_choice);
+    return acc;
 }
 
 int main() {
-    using Figures = TList<>;
-
-    std::cout << (Rock{} > Paper{}) << std::endl;
-    std::cout << (Rock{} > Scissors{}) << std::endl;
-    std::cout << (Scissors{} > Paper{}) << std::endl;
+    std::cout << get_winner('r', 's') << std::endl;
+    std::cout << get_winner('s', 'r') << std::endl;
+    std::cout << get_winner('s', 's') << std::endl;
 }

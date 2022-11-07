@@ -5,4 +5,4 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS -O3)
 
 add_executable(rps_game
-        main.cpp)
+        main.cpp tlist.hpp shape.hpp previous_versions_of_code.hpp)
