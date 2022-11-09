@@ -53,3 +53,62 @@
 //        return (internal(Ts{}, TL{}) + ... );
 //    } (TL{});
 //}
+
+
+//template<typename Other>
+//struct test_transform_to_other {
+//    template<typename T>
+//    using make = Other;
+//};
+//
+//static_assert(std::is_same_v<
+//        transform<TList<bool, int>, test_transform_to_other<double>>,
+//        TList<double, double>
+//>);
+//
+//template<typename Other>
+//struct test_transform_to_pair {
+//    template<typename T>
+//    using make = std::pair<Other, T>;
+//};
+//
+//static_assert(std::is_same_v<
+//        transform<TList<bool, int>, test_transform_to_pair<double>>,
+//        TList<std::pair<double, bool>, std::pair<double, int>>
+//>);
+//
+//template<typename TL>
+//struct test_inner_transform {
+//    template<typename T>
+//    using make = transform<TL, T>;
+//};
+//
+//static_assert(std::is_same_v<
+//        transform<TList<bool, int>, test_inner_transform<TList<bool, int>>>,
+//        TList<std::pair<double, bool>, std::pair<double, int>>
+//>);
+//
+//template<typename First, typename Second>
+//using make_pair = TList<First, Second>;
+//
+//template<typename First>
+//struct pair_with {
+//    template<typename Second>
+//    using make = make_pair<First, Second>;
+//};
+//
+//template<TypeList TL>
+//struct pair_with_each_in_list {
+//    template<typename T>
+//    using make = transform<TL, pair_with<T>>;
+//};
+//
+//template<TypeList TL>
+//using pair_combinations = transform<TL, pair_with_each_in_list<TL>>;
+
+//
+//static_assert(std::is_same_v<
+//    TList<TList<bool, bool>, TList<bool, int>, TList<int, bool>, TList<int, int>>,
+////        pair_combinations<TList<bool, int>>
+//        transform<TList<bool, int>, pair_with_each_in_list<TList<bool, int>>>
+//>);

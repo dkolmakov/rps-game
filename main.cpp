@@ -32,10 +32,10 @@ auto figure_symbol_equals(char sym) {
 }
 
 template<typename Action>
-auto apply_to_figures(Action action) {
+auto apply_to_figures(Action&& action) {
     return [&](char user_choice, char comp_choice) {
         Figures::for_each(do_if(figure_symbol_equals(user_choice),
-                                [&]<Figure LF>(LF f) {
+                                [&]<Figure LF>(LF) {
                                     Figures::for_each(do_if(figure_symbol_equals(comp_choice),
                                                             [&]<Figure RF>(RF) { action(LF{}, RF{}); }
                                     ));
@@ -46,9 +46,9 @@ auto apply_to_figures(Action action) {
 
 int get_winner(char user_choice, char comp_choice) {
     int acc = 0;
-    auto pair_to_result = apply_to_figures([&acc] (auto lf, auto rf) {
-        std::cout << lf.label << " " << decide_winner(lf, rf) << " " << rf.label << std::endl;
-        acc += decide_winner(lf, rf);
+    auto pair_to_result = apply_to_figures([&acc]<Figure LF, Figure RF> (LF lf, RF rf) {
+        std::cout << lf.label << " " << decide_winner(LF{}, RF{}) << " " << rf.label << std::endl;
+        acc += decide_winner(LF{}, RF{});
     });
     pair_to_result(user_choice, comp_choice);
     return acc;

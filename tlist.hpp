@@ -29,3 +29,22 @@ auto do_if(Predicate&& p, Action&& op) {
         }
     };
 }
+
+template<typename TypeTransformer, typename... TTs>
+using apply_to_all = TList< typename TypeTransformer::template make<TTs> ... >;
+
+template<TypeList TL, typename TypeTransformer>
+using transform = decltype( [] <typename... Ts> (TList<Ts...>) {
+    return apply_to_all<TypeTransformer, Ts...>{};
+}(TL{}));
+
+struct test_no_transform {
+    template<typename T>
+    using make = T;
+};
+
+static_assert(std::is_same_v<
+                      transform<TList<bool, int>, test_no_transform>,
+                      TList<bool, int>
+>);
+
