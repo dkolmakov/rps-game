@@ -30,7 +30,7 @@ struct Symbol {
 };
 
 template<typename F>
-concept Figure = requires(F)
+concept Shape = requires(F)
 {
     ([]<typename... Ts> (TList<Ts...>) {})(typename F::beats {});
     ([](std::string_view) {})( F::label );
