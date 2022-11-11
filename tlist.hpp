@@ -4,15 +4,57 @@
 
 template<typename... Ts>
 struct TList {
-    template<typename Action>
-    static void for_each(Action op) {
-        (op(Ts{}), ... );
-    }
+
+    template<typename T>
+    struct one { constexpr static size_t value = 1; };
+    constexpr static size_t list_size = (one<Ts>::value + ...);
+
+    template<size_t I, typename Next, typename... Other>
+    struct get_helper {
+        using result = typename get_helper<I - 1, Other...>::result;
+    };
+
+    template<typename Next, typename... Other>
+    struct get_helper<0, Next, Other...> {
+        using result = Next;
+    };
+
+    template<size_t I>
+    using get = typename get_helper<I, Ts...>::result;
 
     template<typename T>
     static constexpr bool contains_v = [](){
         return (std::is_same_v<Ts, T> || ...);
     }();
+
+    template<typename Action>
+    static void for_each(Action&& op) {
+        [operation = std::forward<Action>(op)]
+        <size_t... Ints> (std::integer_sequence<size_t, Ints...>) {
+            (operation(Ints, get<Ints>{}), ... );
+        } (std::make_integer_sequence<size_t, list_size>{});
+    }
+
+    template<typename Action>
+    static auto apply(Action&& action) {
+        return [&](auto&&... args) {
+            for_each([&]<typename T>(size_t i, T) {
+                action(i, T{}, args...);
+            });
+        };
+    }
+
+    template<typename Action>
+    static auto apply_to_combinations(Action&& action) {
+        return [&](auto&&... args) {
+            for_each([&]<typename First>(size_t i, First) {
+                for_each([&]<typename Second>(size_t j, Second) {
+                    action(i, First{}, j, Second{}, args...);
+                });
+            });
+        };
+    }
+
 };
 
 template<typename TL>
@@ -42,7 +84,6 @@ struct test_no_transform {
     template<typename T>
     using make = T;
 };
-
 static_assert(std::is_same_v<
                       transform<TList<bool, int>, test_no_transform>,
                       TList<bool, int>

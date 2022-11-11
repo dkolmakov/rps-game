@@ -1,4 +1,20 @@
 
+
+//template<typename Action>
+//auto apply_to_shape_combinations(Action&& action) {
+//    return [&](char user_choice, char comp_choice) {
+//        Shapes::for_each([&]<Shape UserShape>(size_t, UserShape) {
+//            Shapes::for_each([&]<Shape CompShape>(size_t, CompShape) {
+//                if (UserShape::symbol == user_choice
+//                    && CompShape::symbol == comp_choice) {
+//                    action(UserShape{}, CompShape{});
+//                }
+//            });
+//        });
+//    };
+//}
+//
+
 //int get_winner(char user_choice, char comp_choice) {
 //    int acc = 0;
 //    Shapes::for_each(do_if(figure_symbol_equals(user_choice),

@@ -20,51 +20,57 @@ constexpr bool operator==(LF, RF) { return std::is_same_v<RF, LF>; }
 
 using Shapes = TList<Paper, Scissors, Rock>;
 
-auto figure_symbol_equals(char sym) {
-    return [sym]<Shape LF> (LF) { return LF::symbol == sym; };
+struct GameHistory {
+    size_t gameTotal = 0;
+    size_t userWins = 0;
+    size_t compWins = 0;
+};
+
+template<Shape UserShape, Shape CompShape>
+constexpr auto decide_winner(UserShape lf, CompShape rf, GameHistory& history) {
+    ++history.gameTotal;
+    if (lf == rf) {
+        return std::tuple{ "same as", "Tie!" };
+    }
+    else if (lf > rf) {
+        ++history.userWins;
+        return std::tuple{ "beats", "User wins!" };
+    }
+    else {
+        ++history.compWins;
+        return std::tuple{ "is beaten by", "Comp wins!" };
+    }
 }
 
-template<typename Action>
-auto apply_to_shape_pair(Action&& action) {
-    return [&](char user_choice, char comp_choice) {
-        Shapes::for_each( do_if( figure_symbol_equals(user_choice),
-                                 [&]<Shape UserShape>(UserShape) {
-                                      Shapes::for_each( do_if( figure_symbol_equals(comp_choice),
-                                            [&]<Shape CompShape>(CompShape) { action(UserShape{}, CompShape{}); }
-                                      ));
-                                 }
-        ));
-    };
-}
-
-template<Shape LF, Shape RF>
-constexpr auto decide_winner(LF lf, RF rf) {
-    if (lf == rf) { return std::tuple{ 0, "same as", "Tie!" }; }
-    else if (lf > rf) { return std::tuple{ 1, "beats", "User wins!" }; }
-    else { return std::tuple{ -1, "is beaten by", "Comp wins!" }; }
+template<typename T>  requires std::is_same_v<T, char>
+char get_symbol(T c) { return c; }
+char get_symbol(size_t index) {
+    char symbol = -1;
+    Shapes::for_each([&]<Shape shape>(size_t i, shape) {
+        if (i == index) {
+            symbol = shape::symbol;
+        }
+    });
+    return symbol;
 }
 
 int main() {
-    struct GameHistory {
-        size_t gameTotal = 0;
-        size_t userWins = 0;
-        size_t compWins = 0;
-    } history;
+    GameHistory history;
 
-    auto game_action = [&history]<Shape UserShape, Shape CompShape> (UserShape user, CompShape comp) {
-        ++history.gameTotal;
-        auto [val, sep, result] = decide_winner(user, comp);
+    auto game_engine = Shapes::apply_to_combinations([] <Shape UserShape, Shape CompShape>
+        (size_t, UserShape user, size_t, CompShape comp, auto user_choice, auto comp_choice, GameHistory& history) {
+            if (UserShape::symbol == get_symbol(user_choice) && CompShape::symbol == get_symbol(comp_choice)) {
+                auto [sep, result] = decide_winner(user, comp, history);
+                std::cout << user.get_label() << " " << sep << " " << comp.get_label() << ". " << result << std::endl;
+            }
+        }
+    );
 
-        if (val == 1) ++history.userWins;
-        else if (val == -1) ++history.compWins;
+    game_engine('r', 's', history);
+    game_engine('s', 'r', history);
+    game_engine('s', 's', history);
 
-        std::cout << user.label << " " << sep << " " << comp.label << ". " << result << std::endl;
-
-    };
-
-    auto game_engine = apply_to_shape_pair(game_action);
-
-    game_engine('r', 's');
-    game_engine('s', 'r');
-    game_engine('s', 's');
+    game_engine(0, 1, history);
+    game_engine(1, 1, history);
+    game_engine(2, 1, history);
 }
