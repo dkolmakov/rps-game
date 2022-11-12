@@ -1,5 +1,6 @@
 #include <iostream>
 #include <utility>
+#include <optional>
 
 #include "tlist.hpp"
 #include "shape.hpp"
@@ -27,12 +28,12 @@ struct GameHistory {
 };
 
 template<Shape UserShape, Shape CompShape>
-constexpr auto decide_winner(UserShape lf, CompShape rf, GameHistory& history) {
+constexpr auto decide_winner(UserShape, CompShape, GameHistory& history) {
     ++history.gameTotal;
-    if (lf == rf) {
+    if (UserShape{} == CompShape{}) {
         return std::tuple{ "same as", "Tie!" };
     }
-    else if (lf > rf) {
+    else if (UserShape{} > CompShape{}) {
         ++history.userWins;
         return std::tuple{ "beats", "User wins!" };
     }
@@ -43,14 +44,20 @@ constexpr auto decide_winner(UserShape lf, CompShape rf, GameHistory& history) {
 }
 
 template<typename T>  requires std::is_same_v<T, char>
-char get_symbol(T c) { return c; }
-char get_symbol(size_t index) {
-    char symbol = -1;
-    Shapes::for_each([&]<Shape shape>(size_t i, shape) {
-        if (i == index) {
-            symbol = shape::symbol;
-        }
-    });
+char get_symbol_from_input(T c) { return c; }
+char get_symbol_from_input(size_t index) {
+    char symbol = Shapes::map_reduce(
+    [&]<Shape CurrentShape>(size_t i, CurrentShape) -> std::optional<char> {
+        if (i == index) return std::optional(CurrentShape::symbol);
+        else return std::nullopt;
+    },
+    [&](std::optional<char> first, std::optional<char> second) -> std::optional<char> {
+        if (first) return first;
+        else if (second) return second;
+        else return std::nullopt;
+    },
+    std::optional<char>(std::nullopt)
+    ).value();
     return symbol;
 }
 
@@ -59,7 +66,10 @@ int main() {
 
     auto game_engine = Shapes::apply_to_combinations([] <Shape UserShape, Shape CompShape>
         (size_t, UserShape user, size_t, CompShape comp, auto user_choice, auto comp_choice, GameHistory& history) {
-            if (UserShape::symbol == get_symbol(user_choice) && CompShape::symbol == get_symbol(comp_choice)) {
+            auto user_symbol = get_symbol_from_input(user_choice);
+            auto comp_symbol = get_symbol_from_input(comp_choice);
+            if (UserShape::symbol == user_symbol
+                && CompShape::symbol == comp_symbol) {
                 auto [sep, result] = decide_winner(user, comp, history);
                 std::cout << user.get_label() << " " << sep << " " << comp.get_label() << ". " << result << std::endl;
             }

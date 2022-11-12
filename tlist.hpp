@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <utility>
 
 template<typename... Ts>
@@ -32,6 +33,27 @@ struct TList {
         [operation = std::forward<Action>(op)]
         <size_t... Ints> (std::integer_sequence<size_t, Ints...>) {
             (operation(Ints, get<Ints>{}), ... );
+        } (std::make_integer_sequence<size_t, list_size>{});
+    }
+
+    template<typename Action>
+    static auto map(Action&& op) {
+        [operation = std::forward<Action>(op)]
+        <size_t... Ints> (std::integer_sequence<size_t, Ints...>) {
+            std::vector<decltype(operation(0, get<0>{}))> results;
+            (results.push_back(operation(Ints, get<Ints>{})), ... );
+            return results;
+        } (std::make_integer_sequence<size_t, list_size>{});
+    }
+
+    template<typename Action, typename Combination, typename Result>
+    static auto map_reduce(Action&& op, Combination&& comb, Result initial) {
+        return [operation = std::forward<Action>(op),
+                combination = std::forward<Combination>(comb),
+                initial] <size_t... Ints> (std::integer_sequence<size_t, Ints...>) {
+            Result result = initial;
+            ((result = combination(result, operation(Ints, get<Ints>{}))), ... );
+            return result;
         } (std::make_integer_sequence<size_t, list_size>{});
     }
 
