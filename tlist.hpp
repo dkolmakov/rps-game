@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vector>
+#include <array>
 #include <utility>
 
 template<typename... Ts>
@@ -37,11 +37,13 @@ struct TList {
     }
 
     template<typename Action>
-    static auto map(Action&& op) {
-        [operation = std::forward<Action>(op)]
-        <size_t... Ints> (std::integer_sequence<size_t, Ints...>) {
-            std::vector<decltype(operation(0, get<0>{}))> results;
-            (results.push_back(operation(Ints, get<Ints>{})), ... );
+    requires (list_size > 0)
+    constexpr static auto map(Action&& op) {
+        return [operation = std::forward<Action>(op)]
+                <size_t... Ints> (std::integer_sequence<size_t, Ints...>) {
+            using ReturnType = decltype(operation(get<0>{}));
+            std::array<ReturnType, list_size> results;
+            ((results[Ints] = operation(get<Ints>{})), ... );
             return results;
         } (std::make_integer_sequence<size_t, list_size>{});
     }
@@ -58,20 +60,28 @@ struct TList {
     }
 
     template<typename Action>
-    static auto apply(Action&& action) {
-        return [&](auto&&... args) {
-            for_each([&]<typename T>(size_t i, T) {
-                action(i, T{}, args...);
-            });
-        };
+    static auto apply_by_index(size_t index, Action&& action) {
+        using ReturnType = decltype(action(get<0>{}));
+        return map_reduce(
+                [&]<typename T>(size_t i, T) -> std::optional<ReturnType> {
+                    if (i == index) return std::optional(action(T{}));
+                    else return std::nullopt;
+                },
+                [&](std::optional<ReturnType> first, std::optional<ReturnType> second) -> std::optional<ReturnType> {
+                    if (first) return first;
+                    else if (second) return second;
+                    else return std::nullopt;
+                },
+                std::optional<ReturnType>(std::nullopt)
+        ).value();
     }
 
     template<typename Action>
     static auto apply_to_combinations(Action&& action) {
         return [&](auto&&... args) {
-            for_each([&]<typename First>(size_t i, First) {
-                for_each([&]<typename Second>(size_t j, Second) {
-                    action(i, First{}, j, Second{}, args...);
+            for_each([&]<typename First>(size_t, First) {
+                for_each([&]<typename Second>(size_t, Second) {
+                    action(First{}, Second{}, args...);
                 });
             });
         };

@@ -18,7 +18,7 @@ struct Beats {
 
 template<StringLiteral sl>
 struct Label {
-    static std::string get_label() { return std::string(sl.value); }
+    constexpr static std::string_view get_label() { return std::string_view(sl.value); }
 };
 
 template<char sym>
@@ -30,7 +30,7 @@ template<typename F>
 concept Shape = requires(F)
 {
     ([]<typename... Ts> (TList<Ts...>) {})(typename F::beats {});
-    ([](std::string) {})( F::get_label() );
+    ([](std::string_view) {})( F::get_label() );
     ([](const char&) {})( F::symbol );
 };
 

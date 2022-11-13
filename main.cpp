@@ -1,6 +1,7 @@
 #include <iostream>
-#include <utility>
 #include <optional>
+#include <set>
+#include <random>
 
 #include "tlist.hpp"
 #include "shape.hpp"
@@ -13,74 +14,121 @@ struct Rock : Beats<Scissors>, Label<"Rock">, Symbol<'r'> {};
 struct Paper : Beats<Rock>, Label<"Paper">, Symbol<'p'> {};
 struct Scissors  : Beats<Paper>, Label<"Scissors">, Symbol<'s'> {};
 
-template<Shape LF, Shape RF>
-constexpr bool operator>(LF, RF) { return LF::beats::template contains_v<RF>; }
-
-template<Shape LF, Shape RF>
-constexpr bool operator==(LF, RF) { return std::is_same_v<RF, LF>; }
-
 using Shapes = TList<Paper, Scissors, Rock>;
 
-struct GameHistory {
-    size_t gameTotal = 0;
-    size_t userWins = 0;
-    size_t compWins = 0;
-};
+constexpr auto index_to_symbols_tbl = Shapes::map(
+        []<Shape CurrentShape>(CurrentShape) { return CurrentShape::symbol; }
+);
 
-template<Shape UserShape, Shape CompShape>
-constexpr auto decide_winner(UserShape, CompShape, GameHistory& history) {
-    ++history.gameTotal;
-    if (UserShape{} == CompShape{}) {
-        return std::tuple{ "same as", "Tie!" };
-    }
-    else if (UserShape{} > CompShape{}) {
-        ++history.userWins;
-        return std::tuple{ "beats", "User wins!" };
-    }
-    else {
-        ++history.compWins;
-        return std::tuple{ "is beaten by", "Comp wins!" };
-    }
+constexpr auto index_to_label_tbl = Shapes::map(
+        []<Shape CurrentShape>(CurrentShape) { return CurrentShape::get_label(); }
+);
+
+auto index_to_beaten_shapes_tbl = Shapes::map(
+        []<Shape CurrentShape>(CurrentShape) {
+            auto beats = CurrentShape::beats::map(
+                    []<Shape BeatenShape>(BeatenShape) { return BeatenShape::symbol; }
+            );
+            return std::set(beats.begin(), beats.end());
+        }
+);
+
+
+bool beats(size_t index, char symbol) {
+    return index_to_beaten_shapes_tbl[index].contains(symbol);
 }
 
-template<typename T>  requires std::is_same_v<T, char>
-char get_symbol_from_input(T c) { return c; }
-char get_symbol_from_input(size_t index) {
-    char symbol = Shapes::map_reduce(
-    [&]<Shape CurrentShape>(size_t i, CurrentShape) -> std::optional<char> {
-        if (i == index) return std::optional(CurrentShape::symbol);
-        else return std::nullopt;
-    },
-    [&](std::optional<char> first, std::optional<char> second) -> std::optional<char> {
-        if (first) return first;
-        else if (second) return second;
-        else return std::nullopt;
-    },
-    std::optional<char>(std::nullopt)
-    ).value();
-    return symbol;
+char index_to_symbol(size_t index) {
+    return index_to_symbols_tbl[index];
+}
+
+std::optional<size_t> symbol_to_index(char target) {
+    for (size_t i = 0; i < index_to_symbols_tbl.size(); ++i) {
+        if (index_to_symbols_tbl[i] == target) return i;
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string_view> get_label(char c) {
+    auto index = symbol_to_index(c);
+    if (index)
+        return index_to_label_tbl[*index];
+    else
+        return std::nullopt;
+}
+
+std::optional<std::string_view> get_label(size_t index) {
+    if (index < Shapes::list_size)
+        return index_to_label_tbl[index];
+    else
+        return std::nullopt;
+}
+
+bool is_valid(char input) {
+    return symbol_to_index(input).has_value();
 }
 
 int main() {
-    GameHistory history;
+    struct GameHistory {
+        size_t gameTotal = 0;
+        size_t userWins = 0;
+        size_t compWins = 0;
 
-    auto game_engine = Shapes::apply_to_combinations([] <Shape UserShape, Shape CompShape>
-        (size_t, UserShape user, size_t, CompShape comp, auto user_choice, auto comp_choice, GameHistory& history) {
-            auto user_symbol = get_symbol_from_input(user_choice);
-            auto comp_symbol = get_symbol_from_input(comp_choice);
-            if (UserShape::symbol == user_symbol
-                && CompShape::symbol == comp_symbol) {
-                auto [sep, result] = decide_winner(user, comp, history);
-                std::cout << user.get_label() << " " << sep << " " << comp.get_label() << ". " << result << std::endl;
-            }
+        void print() const {
+            std::cout << "Total games: " << gameTotal << std::endl;
+            std::cout << "User won: " << userWins << std::endl;
+            std::cout << "Computer won: " << compWins << std::endl;
+            std::cout << "Ties: " << gameTotal - userWins - compWins << std::endl;
         }
-    );
+    } history;
 
-    game_engine('r', 's', history);
-    game_engine('s', 'r', history);
-    game_engine('s', 's', history);
+    auto decide_winner = [&history](size_t comp_index, char user_symbol) {
+        ++history.gameTotal;
+        if (index_to_symbol(comp_index) == user_symbol) {
+            return std::tuple{ " same as ", "Tie!" };
+        }
+        else if (beats(comp_index, user_symbol)) {
+            ++history.compWins;
+            return std::tuple{ "beats", "Computer wins!" };
+        }
+        else {
+            ++history.userWins;
+            return std::tuple{ "is beaten by", "User wins!" };
+        }
+    };
 
-    game_engine(0, 1, history);
-    game_engine(1, 1, history);
-    game_engine(2, 1, history);
+    auto game_engine = [&decide_winner] (size_t comp_index, char user_symbol) {
+        auto user_label = get_label(user_symbol);
+        auto comp_label = get_label(comp_index);
+
+        auto [sep, result] = decide_winner(comp_index, user_symbol);
+        std::cout << *comp_label << " " << sep << " " << *user_label << ". " << result
+                  << std::endl;
+    };
+
+    auto help = [] () {
+        size_t n_shapes = index_to_symbols_tbl.size();
+        for (size_t i = 0; i < n_shapes; ++i) {
+            if (i > 0) std::cout << ", ";
+            std::cout << *get_label(i) << " - " << index_to_symbols_tbl[i];
+        }
+    };
+
+    std::random_device rd;
+    std::uniform_int_distribution dist(0, static_cast<int>(Shapes::list_size) - 1);
+    auto generate_comp_choice = [&dist, &rd] {
+        return dist(rd);
+    };
+
+    char input = 's';
+    while (input != 'q') {
+        std::cout << "Enter your choice (h for help): ";
+        std::cin >> input;
+
+        if (input == 'h') help();
+        else if (is_valid(input)) game_engine(generate_comp_choice(), input);
+        else std::cout << "Invalid input!" << std::endl;
+    }
+
+    history.print();
 }
